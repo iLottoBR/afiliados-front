@@ -48,10 +48,8 @@ const step1Schema = z
         message: "Senha deve conter pelo menos um caractere especial",
       }),
     confirmarSenha: z.string().min(8, { message: "Confirme sua senha" }),
-    termos: z.literal(true, {
-      errorMap: () => ({
-        message: "Você precisa aceitar os termos e condições",
-      }),
+    termos: z.boolean().refine((val) => val === true, {
+      message: "Você precisa aceitar os termos e condições",
     }),
   })
   .refine((data) => data.senha === data.confirmarSenha, {
@@ -107,6 +105,13 @@ const step4Schema = z.object({
   tipoChavePix: z.enum(["cpf", "cnpj", "email", "telefone", "aleatoria"], {
     errorMap: () => ({ message: "Tipo de chave PIX inválido" }),
   }),
+});
+
+// Definindo o schema de validação para o passo 5 (Upload de Arquivos)
+const step5Schema = z.object({
+  documentoFrente: z.any(),
+  documentoVerso: z.any(),
+  selfie: z.any()
 });
 
 // Lista de DDIs populares
@@ -171,6 +176,43 @@ const getTipoColor = (tipo: string) => {
   }
 };
 
+// Melhorar a tipagem dos estados
+interface UploadedFiles {
+  documentoFrente?: File;
+  documentoVerso?: File;
+  selfie?: File;
+}
+
+interface FormData {
+  email?: string;
+  senha?: string;
+  nome?: string;
+  sobrenome?: string;
+  telefone?: string;
+  documento?: string;
+  tipoDocumento?: "cpf" | "cnpj";
+  afiliado_id?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  banco?: string;
+  tipoConta?: "corrente" | "poupanca";
+  agencia?: string;
+  conta?: string;
+  digitoConta?: string;
+  chavePix?: string;
+  tipoChavePix?: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+}
+
+// Estilo padrão para os botões principais
+const buttonPrimaryClass = "w-full bg-gradient-to-b from-myBuyersButton-bgFrom to-myBuyersButton-bgTo text-myBuyersButton-textColor font-medium py-6";
+const buttonSecondaryClass = "w-1/3 border-2 border-primary/20 hover:border-primary/40 text-primary font-medium";
+const buttonNextClass = "w-2/3 bg-gradient-to-b from-myBuyersButton-bgFrom to-myBuyersButton-bgTo text-myBuyersButton-textColor font-medium py-6";
+
 export default function CadastroUnificado() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -178,8 +220,9 @@ export default function CadastroUnificado() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [referrer, setReferrer] = useState<any>(null);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<FormData>({});
   const [tipoDocumento, setTipoDocumento] = useState<"cpf" | "cnpj">("cpf");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles>({});
 
   // Buscar informações do afiliado que indicou (se houver)
   useEffect(() => {
@@ -197,12 +240,15 @@ export default function CadastroUnificado() {
     register: registerStep1,
     handleSubmit: handleSubmitStep1,
     watch: watchStep1,
-    setValue,
+    setValue: setValueStep1,
     formState: { errors: errorsStep1, isValid: isValidStep1 },
-  } = useForm({
+  } = useForm<z.infer<typeof step1Schema>>({
     resolver: zodResolver(step1Schema),
     mode: "onChange",
     defaultValues: {
+      email: "",
+      senha: "",
+      confirmarSenha: "",
       termos: false,
     },
   });
@@ -249,6 +295,16 @@ export default function CadastroUnificado() {
     mode: "onChange",
   });
 
+  // Form para o passo 5
+  const {
+    handleSubmit: handleSubmitStep5,
+    formState: { errors: errorsStep5 },
+    setValue: setValueStep5
+  } = useForm({
+    resolver: zodResolver(step5Schema),
+    mode: "onChange"
+  });
+
   const selectedAfiliadoId = watch("afiliado_id");
   const watchedTipoDocumento = watch("tipoDocumento");
 
@@ -256,8 +312,10 @@ export default function CadastroUnificado() {
   useEffect(() => {
     if (watchedTipoDocumento) {
       setTipoDocumento(watchedTipoDocumento);
+      // Limpar o campo de documento quando mudar o tipo
+      setValueStep2("documento", "");
     }
-  }, [watchedTipoDocumento]);
+  }, [watchedTipoDocumento, setValueStep2]);
 
   // Atualizar o afiliado selecionado quando mudar no select
   useEffect(() => {
@@ -286,22 +344,68 @@ export default function CadastroUnificado() {
     setCurrentStep(4);
   };
 
+  const onSubmitStep4 = async (data: any) => {
+    setFormData({ ...formData, ...data });
+    setCurrentStep(5);
+  };
+
+  const onSubmitStep5 = async (data: any) => {
+    try {
+      // Validar se todos os arquivos foram enviados
+      if (!uploadedFiles.documentoFrente || !uploadedFiles.documentoVerso || !uploadedFiles.selfie) {
+        throw new Error("Por favor, envie todos os documentos necessários");
+      }
+
+      setIsSubmitting(true);
+
+      // Criar FormData para envio dos arquivos
+      const formDataToSend = new FormData();
+      formDataToSend.append('documentoFrente', uploadedFiles.documentoFrente);
+      formDataToSend.append('documentoVerso', uploadedFiles.documentoVerso);
+      formDataToSend.append('selfie', uploadedFiles.selfie);
+
+      // Adicionar outros dados do formulário
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value) {
+          formDataToSend.append(key, value.toString());
+        }
+      });
+
+      // Aqui você faria o envio dos dados para o servidor
+      console.log("Dados do cadastro:", {
+        ...formData,
+        documentos: {
+          frente: uploadedFiles.documentoFrente.name,
+          verso: uploadedFiles.documentoVerso.name,
+          selfie: uploadedFiles.selfie.name
+        }
+      });
+
+      // Salvar no localStorage apenas os metadados
+      localStorage.setItem("cadastroData", JSON.stringify({
+        ...formData,
+        documentos: {
+          frente: uploadedFiles.documentoFrente.name,
+          verso: uploadedFiles.documentoVerso.name,
+          selfie: uploadedFiles.selfie.name
+        }
+      }));
+
+      // Simular um tempo de processamento
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Redirecionar para a página de contrato
+      router.push("/contrato");
+    } catch (error) {
+      console.error("Erro ao finalizar cadastro:", error);
+      // Aqui você pode adicionar uma notificação de erro para o usuário
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Estado para controlar o loading durante o envio do formulário
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Função para finalizar o cadastro
-  const onSubmitStep4 = async (data: any) => {
-    setIsSubmitting(true);
-    const completeData = { ...formData, ...data };
-    console.log("Dados do cadastro:", completeData);
-    localStorage.setItem("cadastroData", JSON.stringify(completeData));
-
-    // Simular um tempo de processamento
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Redirecionar diretamente para a página de contrato
-    router.push("/contrato");
-  };
 
   // Função para formatar CPF enquanto digita
   const formatCPF = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -362,7 +466,9 @@ export default function CadastroUnificado() {
                     ? "Complete seu cadastro"
                     : currentStep === 3
                     ? "Endereço"
-                    : "Dados Bancários"}
+                    : currentStep === 4
+                    ? "Dados Bancários"
+                    : "Upload de Documentos"}
                 </CardTitle>
                 <CardDescription className="text-base">
                   {currentStep === 1
@@ -371,11 +477,13 @@ export default function CadastroUnificado() {
                     ? "Estamos quase lá! Precisamos de mais algumas informações"
                     : currentStep === 3
                     ? "Informe seu endereço completo"
-                    : "Para finalizar, informe seus dados bancários"}
+                    : currentStep === 4
+                    ? "Para finalizar, informe seus dados bancários"
+                    : "Envie os documentos necessários para validação"}
                 </CardDescription>
 
                 <div className="flex items-center justify-between mt-4">
-                  {[1, 2, 3, 4].map((step) => (
+                  {[1, 2, 3, 4, 5].map((step) => (
                     <div key={step} className="flex items-center">
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -388,7 +496,7 @@ export default function CadastroUnificado() {
                       >
                         {step}
                       </div>
-                      {step < 4 && (
+                      {step < 5 && (
                         <div
                           className={`w-12 h-1 mx-2 rounded ${
                             step < currentStep
@@ -474,9 +582,9 @@ export default function CadastroUnificado() {
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="termos"
-                            checked={termosAceitos}
+                            {...registerStep1("termos")}
                             onCheckedChange={(checked) => {
-                              setValue("termos", checked === true);
+                              setValueStep1("termos", checked as boolean);
                             }}
                           />
                           <label
@@ -502,7 +610,7 @@ export default function CadastroUnificado() {
                       <CardFooter className="px-0 pt-4">
                         <Button
                           type="submit"
-                          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all text-white font-medium py-6"
+                          className={buttonPrimaryClass}
                           disabled={!isValidStep1}
                         >
                           Continuar
@@ -763,7 +871,7 @@ export default function CadastroUnificado() {
                         <Button
                           variant="outline"
                           type="button"
-                          className="w-1/3"
+                          className={buttonSecondaryClass}
                           onClick={() => setCurrentStep(1)}
                         >
                           <svg
@@ -784,7 +892,7 @@ export default function CadastroUnificado() {
                         </Button>
                         <Button
                           type="submit"
-                          className="w-2/3 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all text-white font-medium py-6"
+                          className={buttonNextClass}
                           disabled={isSubmitting}
                         >
                           {isSubmitting ? (
@@ -813,6 +921,7 @@ export default function CadastroUnificado() {
                             </>
                           ) : (
                             <>
+                              Continuar
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="18"
@@ -823,14 +932,13 @@ export default function CadastroUnificado() {
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                className="mr-2"
+                                className="ml-2"
                               >
                                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                                 <circle cx="9" cy="7" r="4" />
                                 <path d="M22 21v-2a4 4 0 0 1 0 7.75" />
                                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                               </svg>
-                              Finalizar Cadastro
                             </>
                           )}
                         </Button>
@@ -963,7 +1071,7 @@ export default function CadastroUnificado() {
                         <Button
                           variant="outline"
                           type="button"
-                          className="w-1/3"
+                          className={buttonSecondaryClass}
                           onClick={() => setCurrentStep(2)}
                         >
                           <svg
@@ -984,28 +1092,57 @@ export default function CadastroUnificado() {
                         </Button>
                         <Button
                           type="submit"
-                          className="w-2/3 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all text-white font-medium py-6"
+                          className={buttonNextClass}
+                          disabled={isSubmitting}
                         >
-                          Próximo
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="ml-2"
-                          >
-                            <path d="m9 18 6-6-6-6" />
-                          </svg>
+                          {isSubmitting ? (
+                            <>
+                              <svg
+                                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Finalizando cadastro...
+                            </>
+                          ) : (
+                            <>
+                              Continuar
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="ml-2"
+                              >
+                                <path d="m9 18 6-6-6-6" />
+                              </svg>
+                            </>
+                          )}
                         </Button>
                       </CardFooter>
                     </form>
                   </motion.div>
-                ) : (
+                ) : currentStep === 4 ? (
                   <motion.div
                     key="step4"
                     initial={{ opacity: 0, x: 20 }}
@@ -1137,7 +1274,7 @@ export default function CadastroUnificado() {
                         <Button
                           variant="outline"
                           type="button"
-                          className="w-1/3"
+                          className={buttonSecondaryClass}
                           onClick={() => setCurrentStep(3)}
                         >
                           <svg
@@ -1158,8 +1295,171 @@ export default function CadastroUnificado() {
                         </Button>
                         <Button
                           type="submit"
-                          className="w-2/3 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all text-white font-medium py-6"
+                          className={buttonNextClass}
                           disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <svg
+                                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Finalizando cadastro...
+                            </>
+                          ) : (
+                            <>
+                              Continuar
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="ml-2"
+                              >
+                                <path d="m9 18 6-6-6-6" />
+                              </svg>
+                            </>
+                          )}
+                        </Button>
+                      </CardFooter>
+                    </form>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="step5"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <form onSubmit={handleSubmitStep5(onSubmitStep5)}>
+                      <CardContent className="space-y-4 px-0">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="documentoFrente">Documento Frente</Label>
+                            <Input
+                              id="documentoFrente"
+                              type="file"
+                              accept="image/*"
+                              className="border-input/60 focus:border-primary"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setUploadedFiles((prev) => ({
+                                    ...prev,
+                                    documentoFrente: file,
+                                  }));
+                                  setValueStep5("documentoFrente", file);
+                                }
+                              }}
+                            />
+                            {!uploadedFiles.documentoFrente && (
+                              <p className="text-sm text-destructive">
+                                Documento frente é obrigatório
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="documentoVerso">Documento Verso</Label>
+                            <Input
+                              id="documentoVerso"
+                              type="file"
+                              accept="image/*"
+                              className="border-input/60 focus:border-primary"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setUploadedFiles((prev) => ({
+                                    ...prev,
+                                    documentoVerso: file,
+                                  }));
+                                  setValueStep5("documentoVerso", file);
+                                }
+                              }}
+                            />
+                            {!uploadedFiles.documentoVerso && (
+                              <p className="text-sm text-destructive">
+                                Documento verso é obrigatório
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="selfie">Selfie com Documento</Label>
+                            <Input
+                              id="selfie"
+                              type="file"
+                              accept="image/*"
+                              className="border-input/60 focus:border-primary"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setUploadedFiles((prev) => ({
+                                    ...prev,
+                                    selfie: file,
+                                  }));
+                                  setValueStep5("selfie", file);
+                                }
+                              }}
+                            />
+                            {!uploadedFiles.selfie && (
+                              <p className="text-sm text-destructive">
+                                Selfie é obrigatória
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+
+                      <CardFooter className="flex justify-between pt-6 px-0">
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className={buttonSecondaryClass}
+                          onClick={() => setCurrentStep(4)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-2"
+                          >
+                            <path d="m15 18-6-6 6-6" />
+                          </svg>
+                          Voltar
+                        </Button>
+                        <Button
+                          type="submit"
+                          className={buttonNextClass}
+                          disabled={isSubmitting || !uploadedFiles.documentoFrente || !uploadedFiles.documentoVerso || !uploadedFiles.selfie}
                         >
                           {isSubmitting ? (
                             <>

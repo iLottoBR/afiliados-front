@@ -30,7 +30,7 @@ function LandingPage() {
 
                             <div className="pt-6">
                                 <Link href="/cadastro">
-                                    <Button size="lg" className="text-lg px-8 py-6 hover:scale-105 transition-transform">
+                                    <Button size="lg" className="px-4 xl:px-4 bg-gradient-to-b from-myBuyersButton-bgFrom to-myBuyersButton-bgTo text-myBuyersButton-textColor">
                                         Quero ser Afiliado
                                     </Button>
                                 </Link>
