@@ -11,7 +11,7 @@ function Header() {
     const isHome = pathname === '/';
 
     return (
-        <header className="w-full py-4 px-6 md:px-20 flex items-center justify-between bg-gradient-to-b from-primary to-primary-600 border-b border-border">
+        <header className="w-full py-4 px-6 md:px-20 flex items-center justify-between bg-gradient-to-b from-primary to-primary-600 border-b border-border z-20">
             <div className="flex items-center gap-3 max-w-[150px]">
                 <Link href="/" className="text-xl font-bold text-foreground">
                     <Image

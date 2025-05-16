@@ -2,6 +2,7 @@ import Header from "@/components/shared/header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Head from "next/head";
+import Hero from "./components/hero";
 
 function LandingPage() {
     return (
@@ -16,27 +17,7 @@ function LandingPage() {
                 <Header />
 
                 <main className="flex-1 flex flex-col items-start justify-start">
-                    <section className="w-full py-12 md:py-24 px-6">
-                        <div className="max-w-3xl w-full mx-auto text-center space-y-8">
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-                                Programa de Afiliados
-                            </h1>
-
-                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                Transforme seu alcance em resultados. Indique clientes, construa sua
-                                rede e ganhe comissões em dois níveis com nosso programa exclusivo
-                                de afiliados.
-                            </p>
-
-                            <div className="pt-6">
-                                <Link href="/cadastro">
-                                    <Button size="lg" className="px-4 xl:px-4 bg-gradient-to-b from-myBuyersButton-bgFrom to-myBuyersButton-bgTo text-myBuyersButton-textColor">
-                                        Quero ser Afiliado
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </section>
+                    <Hero />
 
                     <section className="w-full bg-secondary/10 py-16 px-6">
                         <div className="max-w-6xl mx-auto">

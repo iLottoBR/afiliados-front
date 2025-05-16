@@ -395,7 +395,7 @@ export default function CadastroUnificado() {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Redirecionar para a página de contrato
-      router.push("/contrato");
+      router.push("/sucesso");
     } catch (error) {
       console.error("Erro ao finalizar cadastro:", error);
       // Aqui você pode adicionar uma notificação de erro para o usuário
@@ -447,8 +447,8 @@ export default function CadastroUnificado() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-background flex flex-col bg-red-500">
-      <main className="flex-1 flex items-center justify-end p-6 bg-gradient-to-br from-background to-background/90">
+    <div className="min-h-[calc(100vh-80px)] flex flex-col">
+      <main className="flex-1 flex items-center justify-end p-6 bg-transparent">
         <div className="w-full flex rounded-3xl overflow-hidden shadow-2xl md:w-4/5 lg:w-3/5 xl:w-2/5">
           {/* Lado direito - Formulário */}
           <motion.div
@@ -481,33 +481,6 @@ export default function CadastroUnificado() {
                     ? "Para finalizar, informe seus dados bancários"
                     : "Envie os documentos necessários para validação"}
                 </CardDescription>
-
-                <div className="flex items-center justify-between mt-4">
-                  {[1, 2, 3, 4, 5].map((step) => (
-                    <div key={step} className="flex items-center">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          step === currentStep
-                            ? "bg-primary text-white"
-                            : step < currentStep
-                            ? "bg-primary/20 text-primary"
-                            : "bg-gray-100 text-gray-400"
-                        }`}
-                      >
-                        {step}
-                      </div>
-                      {step < 5 && (
-                        <div
-                          className={`w-12 h-1 mx-2 rounded ${
-                            step < currentStep
-                              ? "bg-primary/20"
-                              : "bg-gray-100"
-                          }`}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
               </CardHeader>
 
               <AnimatePresence mode="wait">
